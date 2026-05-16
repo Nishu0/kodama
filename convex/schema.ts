@@ -729,5 +729,226 @@ export default defineSchema({
     updatedAt: v.number()
   })
     .index("by_user", ["userId"])
-    .index("by_user_status", ["userId", "status"])
+    .index("by_user_status", ["userId", "status"]),
+
+  // ==========================================================================
+  // 13. dashboard project-scoped OAuth tokens
+  //
+  // Separate from `oauthAccounts` above (which is keyed on the operator's
+  // Kodama user). These are the per-project connector grants made via the
+  // dashboard — each project decides which Google account / Telegram bot it
+  // can reach. The dashboard process encrypts access/refresh tokens before
+  // writing, using a key derived from `KODAMA_STATE_SECRET`.
+  // ==========================================================================
+
+  // ==========================================================================
+  // 14. dashboard project-scoped runtime overrides
+  //
+  // Single row per project storing operator-edited policy overrides on top
+  // of the dashboard's fallback runtime config. Editing happens through the
+  // PATCH /api/v1/projects/:id/runtime route (session-auth, dashboard-only).
+  // The runtime endpoint layers this over fallback so the SDK sees a merged
+  // PrivacyPolicy without knowing about the override mechanism.
+  // ==========================================================================
+
+  enabledTools: defineTable({
+    projectId: v.string(),
+    tools: v.array(v.string()),                 // MCP tool names the project has enabled
+    updatedAt: v.number(),
+    updatedBy: v.optional(v.string())
+  }).index("by_project", ["projectId"]),
+
+  // Per-project connector enablement. Connections themselves live globally in
+  // `oauthTokens` (keyed under the reserved scope "__global__"); this row only
+  // records which of those global connections a given project is allowed to use.
+  // A connector reaches the SDK only when globally connected AND listed here.
+  projectConnectors: defineTable({
+    projectId: v.string(),
+    connectors: v.array(v.string()),            // connector ids enabled for this project
+    updatedAt: v.number(),
+    updatedBy: v.optional(v.string())
+  }).index("by_project", ["projectId"]),
+
+  // Workspace-level team members + invites. Status "invited" until the person
+  // accepts; "active" once joined. Invite emails go out via Resend.
+  teamMembers: defineTable({
+    email: v.string(),
+    name: v.optional(v.string()),
+    role: v.union(
+      v.literal("owner"),
+      v.literal("admin"),
+      v.literal("member"),
+      v.literal("viewer")
+    ),
+    status: v.union(v.literal("invited"), v.literal("active")),
+    inviteToken: v.optional(v.string()),
+    invitedBy: v.optional(v.string()),
+    invitedAt: v.number(),
+    joinedAt: v.optional(v.number())
+  }).index("by_email", ["email"]),
+
+  // Workspace activity feed — append-only log of notable events (invites,
+  // connector connects, project creation, etc).
+  activityLog: defineTable({
+    type: v.string(),                           // e.g. "team.invite", "connector.connect"
+    actor: v.string(),                          // who triggered it (email/name/"System")
+    summary: v.string(),                        // human-readable one-liner
+    target: v.optional(v.string()),             // optional subject (email, project id, ...)
+    at: v.number()
+  }).index("by_at", ["at"]),
+
+  // Workspace settings singleton. One row, looked up by `key` = "default".
+  workspaceSettings: defineTable({
+    key: v.string(),
+    name: v.string(),
+    openRouterModel: v.string(),                // user-chosen OpenRouter model slug
+    openRouterKeyCt: v.optional(v.string()),    // user's OpenRouter API key, encrypted at app layer
+    notifications: v.union(
+      v.literal("all"),
+      v.literal("important"),
+      v.literal("off")
+    ),
+    supportEmail: v.optional(v.string()),
+    updatedAt: v.number(),
+    updatedBy: v.optional(v.string())
+  }).index("by_key", ["key"]),
+
+  runtimePolicies: defineTable({
+    projectId: v.string(),
+    gmail: v.object({
+      blockSenders: v.array(v.string()),
+      allowSenders: v.array(v.string()),
+      redactOtp: v.boolean(),
+      redactAuthCodes: v.boolean(),
+      redactFinance: v.boolean(),
+      redactPrivateAttachments: v.boolean(),
+      subjectDenyPatterns: v.array(v.string())
+    }),
+    telegram: v.object({
+      blockChats: v.array(v.string()),
+      allowChats: v.array(v.string()),
+      redactPersonalDms: v.boolean()
+    }),
+    x: v.object({
+      blockKeywords: v.array(v.string()),
+      readDirectMessages: v.boolean()
+    }),
+    updatedAt: v.number(),
+    updatedBy: v.optional(v.string())             // email or user id of editor
+  }).index("by_project", ["projectId"]),
+
+  oauthTokens: defineTable({
+    projectId: v.string(),
+    connector: v.union(
+      v.literal("imessage"),
+      v.literal("gmail"),
+      v.literal("calendar"),
+      v.literal("telegram"),
+      v.literal("x")
+    ),
+    accessTokenCt: v.string(),                // encrypted at app layer
+    refreshTokenCt: v.optional(v.string()),   // encrypted at app layer
+    expiresAt: v.optional(v.number()),        // unix ms
+    scopes: v.array(v.string()),
+    status: v.union(
+      v.literal("connected"),
+      v.literal("expired"),
+      v.literal("disconnected")
+    ),
+    profile: v.optional(
+      v.object({
+        id: v.string(),
+        label: v.optional(v.string())
+      })
+    ),
+    extra: v.optional(v.any()),
+    connectedAt: v.string(),                  // iso timestamp from the connect flow
+    updatedAt: v.number()                     // unix ms — last write, drives refresh decisions
+  })
+    .index("by_project", ["projectId"])
+    .index("by_project_connector", ["projectId", "connector"]),
+
+  // ==========================================================================
+  // 15. dashboard data plane
+  //
+  // Tables that back the kodama-web dashboard. Named `dashboard*` to avoid
+  // collisions with the daemon-side `users`/`oauthAccounts`/`spendLedger`
+  // tables which are scoped by iMessage user handle, not project. The
+  // dashboard owns projects, members, secrets, lines, webhooks, platforms.
+  // ==========================================================================
+
+  dashboardProjects: defineTable({
+    projectId: v.string(),                    // public id, e.g. "prj_iris"
+    name: v.string(),
+    environment: v.union(
+      v.literal("production"),
+      v.literal("staging"),
+      v.literal("development")
+    ),
+    memberCount: v.number(),
+    createdAt: v.number(),
+    updatedAt: v.number(),
+    deletedAt: v.optional(v.number())
+  }).index("by_projectId", ["projectId"]),
+
+  dashboardProjectSecrets: defineTable({
+    projectId: v.string(),
+    projectIdPublic: v.string(),              // the UUID shown in Settings → Project ID
+    secretKeyCt: v.string(),                  // encrypted at app layer (AES-GCM)
+    createdAt: v.number(),
+    rotatedAt: v.optional(v.number())
+  }).index("by_projectId", ["projectId"]),
+
+  dashboardProjectMembers: defineTable({
+    projectId: v.string(),
+    name: v.string(),
+    email: v.string(),
+    role: v.union(
+      v.literal("owner"),
+      v.literal("admin"),
+      v.literal("member"),
+      v.literal("viewer")
+    ),
+    addedAt: v.number()
+  })
+    .index("by_project", ["projectId"])
+    .index("by_email", ["email"]),
+
+  dashboardProjectLines: defineTable({
+    projectId: v.string(),
+    label: v.string(),
+    handle: v.string(),
+    platform: v.string(),                     // platform id ("imessage", "telegram", …)
+    status: v.union(v.literal("active"), v.literal("pending")),
+    addedAt: v.number()
+  }).index("by_project", ["projectId"]),
+
+  dashboardProjectWebhooks: defineTable({
+    projectId: v.string(),
+    url: v.optional(v.string()),
+    signingSecretCt: v.optional(v.string()),  // encrypted at app layer
+    events: v.array(v.string()),
+    lastDeliveryAt: v.optional(v.number()),
+    updatedAt: v.number()
+  }).index("by_project", ["projectId"]),
+
+  dashboardProjectPlatforms: defineTable({
+    projectId: v.string(),
+    platformId: v.union(
+      v.literal("imessage"),
+      v.literal("telegram"),
+      v.literal("instagram"),
+      v.literal("discord"),
+      v.literal("messenger"),
+      v.literal("github")
+    ),
+    status: v.union(
+      v.literal("enabled"),
+      v.literal("disabled"),
+      v.literal("coming-soon")
+    ),
+    updatedAt: v.number()
+  })
+    .index("by_project", ["projectId"])
+    .index("by_project_platform", ["projectId", "platformId"])
 });

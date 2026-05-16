@@ -12,6 +12,8 @@ import type * as agentRuns from "../agentRuns.js";
 import type * as conversations from "../conversations.js";
 import type * as memories from "../memories.js";
 import type * as messages from "../messages.js";
+import type * as oauthTokens from "../oauthTokens.js";
+import type * as runtimePolicies from "../runtimePolicies.js";
 import type * as serviceUsage from "../serviceUsage.js";
 import type * as spendLedger from "../spendLedger.js";
 import type * as toolCallsLog from "../toolCallsLog.js";
@@ -27,6 +29,8 @@ declare const fullApi: ApiFromModules<{
   conversations: typeof conversations;
   memories: typeof memories;
   messages: typeof messages;
+  oauthTokens: typeof oauthTokens;
+  runtimePolicies: typeof runtimePolicies;
   serviceUsage: typeof serviceUsage;
   spendLedger: typeof spendLedger;
   toolCallsLog: typeof toolCallsLog;

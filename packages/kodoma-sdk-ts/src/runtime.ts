@@ -1,4 +1,6 @@
 import { resolveContents } from "./content";
+import { fetchRuntimeConfig, type RuntimeConfig } from "./config";
+import { createMeter, type Meter } from "./metering";
 import type { KodamaInstance, Message, PlatformProviderConfig, Space } from "./types";
 
 interface ProviderState {
@@ -12,14 +14,38 @@ export async function Kodama(args: {
   projectId?: string;
   projectSecret?: string;
   providers: PlatformProviderConfig[];
+  baseUrl?: string;
+  fetcher?: typeof fetch;
 }): Promise<KodamaInstance> {
+  // Pull runtime config from the dashboard when project credentials are provided.
+  // Hard-fail on errors: privacy policy and connector state are load-bearing,
+  // and falling back to defaults would silently read data the user disallowed.
+  let runtimeConfig: RuntimeConfig | null = null;
+  if (args.projectId && args.projectSecret) {
+    runtimeConfig = await fetchRuntimeConfig({
+      projectId: args.projectId,
+      projectSecret: args.projectSecret,
+      baseUrl: args.baseUrl,
+      fetcher: args.fetcher
+    });
+  }
+
+  const meter: Meter = createMeter({
+    projectId: args.projectId,
+    projectSecret: args.projectSecret,
+    baseUrl: args.baseUrl,
+    fetcher: args.fetcher
+  });
+
   const states: ProviderState[] = [];
 
   for (const provider of args.providers) {
     const client = await provider.__definition.lifecycle.createClient({
       config: provider.config,
       projectId: args.projectId,
-      projectSecret: args.projectSecret
+      projectSecret: args.projectSecret,
+      policy: runtimeConfig?.policy,
+      connectors: runtimeConfig?.connectors
     });
 
     states.push({
@@ -84,6 +110,7 @@ export async function Kodama(args: {
               space: spaceRef,
               content: item
             });
+            meter.recordResponse({ platform: source.name });
           }
         },
         startTyping: async () => {
@@ -134,6 +161,7 @@ export async function Kodama(args: {
               messageId: raw.id,
               content: item
             });
+            meter.recordResponse({ platform: source.name });
           }
         }
       };
@@ -145,7 +173,10 @@ export async function Kodama(args: {
 
   return {
     messages: mergedMessages(),
+    config: runtimeConfig,
+    meter,
     async stop() {
+      await meter.stop();
       await Promise.allSettled(
         states.map((state) => state.definition.lifecycle.destroyClient({ client: state.client as never }))
       );
@@ -160,6 +191,7 @@ export async function Kodama(args: {
           space: { id: space.id, __platform: state.name },
           content: item
         });
+        meter.recordResponse({ platform: state.name });
       }
     },
     async responding<T>(space: Space, fn: () => Promise<T> | T): Promise<T> {

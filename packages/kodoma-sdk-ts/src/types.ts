@@ -83,7 +83,13 @@ export interface PlatformDef<TName extends string, TConfig, TClient, TExtra exte
   name: TName;
   configDefault: TConfig;
   lifecycle: {
-    createClient(args: { config: TConfig; projectId?: string; projectSecret?: string }): Promise<TClient>;
+    createClient(args: {
+      config: TConfig;
+      projectId?: string;
+      projectSecret?: string;
+      policy?: import("./config").PrivacyPolicy;
+      connectors?: Record<import("./config").ConnectorId, import("./config").ConnectorState>;
+    }): Promise<TClient>;
     destroyClient(args: { client: TClient }): Promise<void>;
   };
   events: {
@@ -104,8 +110,13 @@ export interface PlatformNarrower<TName extends string, TConfig, TClient, TExtra
   config(config?: Partial<TConfig>): PlatformProviderConfig<TName, TConfig, TClient, TExtra>;
 }
 
+import type { RuntimeConfig } from "./config";
+import type { Meter } from "./metering";
+
 export interface KodamaInstance {
   readonly messages: AsyncIterable<[Space, Message]>;
+  readonly config: RuntimeConfig | null;
+  readonly meter: Meter;
   stop(): Promise<void>;
   send(space: Space, ...content: [ContentInput, ...ContentInput[]]): Promise<void>;
   responding<T>(space: Space, fn: () => Promise<T> | T): Promise<T>;

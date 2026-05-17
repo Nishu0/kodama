@@ -11,6 +11,11 @@
       "types": "./dist/index.d.ts",
       "import": "./dist/index.js",
       "default": "./dist/index.js"
+    },
+    "./providers/gmail": {
+      "types": "./dist/providers/gmail.d.ts",
+      "import": "./dist/providers/gmail.js",
+      "default": "./dist/providers/gmail.js"
     }
   },
   "files": [
@@ -20,7 +25,7 @@
   ],
   "scripts": {
     "clean": "rm -rf dist",
-    "build": "bun run clean && bun build ./src/index.ts --outdir ./dist --target node --format esm --packages external && bunx tsc -p ./tsconfig.types.json",
+    "build": "bun run clean && bun build ./src/index.ts ./src/providers/gmail.ts --outdir ./dist --target node --format esm --packages external --root ./src && bunx tsc -p ./tsconfig.types.json",
     "typecheck": "bunx tsc -p ./tsconfig.json",
     "example": "bun run ./examples/terminal.ts",
     "prepublishOnly": "bun run typecheck && bun run build"

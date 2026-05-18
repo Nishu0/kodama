@@ -2,7 +2,7 @@ import Link from "next/link";
 import { AreaChart } from "@/components/area-chart";
 import { StatCard } from "@/components/stat-card";
 import { Badge } from "@/components/ui/badge";
-import { Button } from "@/components/ui/button";
+import { Button, buttonStyles } from "@/components/ui/button";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
 import { ArrowUpRightIcon, PlusIcon } from "@/components/icons";
 import { fetchProjects } from "@/lib/api";
@@ -67,10 +67,13 @@ export default async function DashboardOverviewPage() {
           <Button variant="outline" size="sm">
             Export
           </Button>
-          <Button size="sm">
+          <Link
+            href="/dashboard/projects/new"
+            className={buttonStyles({ size: "sm" })}
+          >
             <PlusIcon className="h-4 w-4" />
             New project
-          </Button>
+          </Link>
         </div>
       </div>
 

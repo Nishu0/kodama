@@ -8,3 +8,4 @@ dist
 *.log
 .agents
 .claude
+idea.md

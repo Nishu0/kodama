@@ -84,7 +84,8 @@ export function SiteFooter() {
           title="Company"
           links={[
             { label: "About", href: "#" },
-            { label: "Privacy", href: "#" },
+            { label: "Terms", href: "/terms" },
+            { label: "Privacy", href: "/privacy" },
             { label: "Sign in", href: "/signin" },
           ]}
         />

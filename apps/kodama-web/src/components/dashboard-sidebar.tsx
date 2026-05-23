@@ -6,9 +6,9 @@ import {
   ActivityIcon,
   ChartIcon,
   FolderIcon,
-  InboxIcon,
   KodamaLogo,
   LayoutDashboardIcon,
+  PlugIcon,
   SettingsIcon,
   SparkleIcon,
   UsersIcon,
@@ -32,9 +32,17 @@ const groups: NavGroup[] = [
     label: "Workspace",
     items: [
       { href: "/dashboard", label: "Overview", icon: LayoutDashboardIcon },
-      { href: "/dashboard/projects", label: "Projects", icon: FolderIcon, badge: "3" },
+      {
+        href: "/dashboard/projects",
+        label: "Projects",
+        icon: FolderIcon,
+      },
+      {
+        href: "/dashboard/integrations",
+        label: "Integrations",
+        icon: PlugIcon,
+      },
       { href: "/dashboard/analytics", label: "Analytics", icon: ChartIcon },
-      { href: "/dashboard/inbox", label: "Inbox", icon: InboxIcon, badge: "12" },
     ],
   },
   {
@@ -65,8 +73,12 @@ export function DashboardSidebar({ className }: { className?: string }) {
       <div className="flex h-14 items-center gap-2 border-b border-sidebar-border px-4">
         <KodamaLogo className="text-primary" />
         <div className="flex min-w-0 flex-col">
-          <span className="truncate text-sm font-semibold tracking-tight">Kodama Admin</span>
-          <span className="truncate text-[11px] text-muted-foreground">Workspace · Acme</span>
+          <span className="truncate text-sm font-semibold tracking-tight">
+            Kodama
+          </span>
+          <span className="truncate text-[11px] text-muted-foreground">
+            Workspace
+          </span>
         </div>
       </div>
 
@@ -111,7 +123,9 @@ export function DashboardSidebar({ className }: { className?: string }) {
         <div className="flex items-center gap-2 rounded-md bg-sidebar-accent/60 p-2.5">
           <SparkleIcon className="h-4 w-4 text-primary" />
           <div className="flex-1 text-xs">
-            <p className="font-medium text-sidebar-accent-foreground">Try Kodama Pro</p>
+            <p className="font-medium text-sidebar-accent-foreground">
+              Try Kodama Pro
+            </p>
             <p className="text-muted-foreground">Advanced model routing</p>
           </div>
         </div>
